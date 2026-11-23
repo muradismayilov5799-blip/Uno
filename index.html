@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rəng Kartları – Kart Oyunu</title>
+  <style>
+    :root {
+      --bg:#0b3d2e; --bg2:#06261c; --text:#f1f5f9; --muted:#a7c4b8;
+      --red:#e53935; --yellow:#fdd835; --green:#43a047; --blue:#1e88e5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 40%, var(--bg), var(--bg2));
+      color: var(--text); min-height: 100vh; display: flex; flex-direction: column;
+      user-select: none;
+    }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; flex-wrap: wrap; }
+    header h1 { font-size: 1.2rem; letter-spacing: .5px; }
+    .controls { display: flex; gap: 8px; align-items: center; }
+    select, .btn {
+      background: rgba(255,255,255,.12); color: var(--text); border: 1px solid rgba(255,255,255,.25);
+      padding: 8px 14px; border-radius: 8px; font-size: .95rem; cursor: pointer;
+    }
+    select option { color: #000; }
+    .btn:hover { background: rgba(255,255,255,.2); }
+    .btn.primary { background: #f5c518; color: #1a1a1a; border: 0; font-weight: 700; }
+
+    main { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 8px 12px 16px; gap: 12px; }
+
+    #opponents { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+    .opp { background: rgba(0,0,0,.25); padding: 8px 12px; border-radius: 10px; text-align: center; min-width: 110px; border: 2px solid transparent; transition: .2s; }
+    .opp.active { border-color: #f5c518; box-shadow: 0 0 14px rgba(245,197,24,.6); }
+    .opp small { color: var(--muted); }
+    .mini { display: flex; justify-content: center; margin: 6px 0 2px; min-height: 30px; }
+    .mini .back { width: 18px; height: 28px; border-radius: 3px; background: #222; border: 2px solid #fff; margin-left: -8px; }
+    .mini .back:first-child { margin-left: 0; }
+
+    #table { display: flex; justify-content: center; align-items: center; gap: 28px; flex-wrap: wrap; }
+    .pile { text-align: center; }
+    .pile small { display: block; margin-top: 6px; color: var(--muted); }
+    #colorDot { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; margin: 0 auto 6px; }
+    #dirInfo { font-size: 1.4rem; }
+
+    .card {
+      width: 70px; height: 104px; border-radius: 10px; border: 3px solid #fff; position: relative;
+      display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+      font-weight: 800; font-size: 1.9rem; color: #fff; text-shadow: 0 2px 3px rgba(0,0,0,.4);
+      box-shadow: 0 4px 10px rgba(0,0,0,.4); transition: transform .15s;
+    }
+    .card::before { content: ""; position: absolute; inset: 14px 6px; background: rgba(255,255,255,.18); border-radius: 50%; transform: rotate(25deg); }
+    .card span { position: relative; z-index: 1; }
+    .card.red { background: var(--red); } .card.yellow { background: var(--yellow); } .card.green { background: var(--green); } .card.blue { background: var(--blue); }
+    .card.wild { background: conic-gradient(var(--red) 0 25%, var(--blue) 0 50%, var(--green) 0 75%, var(--yellow) 0); }
+    .card.back { background: #1b1b1b; cursor: pointer; }
+    .card.back::before { background: #d32f2f; }
+    .card.back span { font-size: .85rem; letter-spacing: 1px; color: #fff; }
+    .card.back:hover { transform: translateY(-4px); }
+
+    #hand { display: flex; gap: 6px; overflow-x: auto; padding: 22px 10px 10px; justify-content: safe center; min-height: 140px; }
+    #hand .card { cursor: default; opacity: .55; }
+    #hand .card.playable { opacity: 1; cursor: pointer; }
+    #hand .card.playable:hover { transform: translateY(-14px); }
+    #hand .card.playable { box-shadow: 0 0 0 3px #f5c518, 0 4px 10px rgba(0,0,0,.4); }
+
+    #msgWrap { text-align: center; min-height: 52px; }
+    #msg { font-size: 1.05rem; margin-bottom: 8px; }
+    #passBtn { display: none; }
+
+    #toast { position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%) scale(.6); font-size: 3rem; font-weight: 900; color: #f5c518; text-shadow: 0 4px 12px #000; opacity: 0; pointer-events: none; transition: .3s; z-index: 20; }
+    #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: none; align-items: center; justify-content: center; z-index: 30; padding: 20px; }
+    .overlay.show { display: flex; }
+    .modal { background: #123c2f; padding: 26px; border-radius: 14px; text-align: center; max-width: 380px; width: 100%; border: 2px solid rgba(255,255,255,.2); }
+    .modal h2 { margin-bottom: 16px; }
+    .colors { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .colors button { height: 70px; border-radius: 12px; border: 3px solid #fff; cursor: pointer; }
+
+    details { max-width: 600px; margin: 0 auto; color: var(--muted); font-size: .9rem; padding: 0 12px 14px; }
+    details summary { cursor: pointer; }
+    details ul { margin: 8px 0 0 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🃏 Rəng Kartları</h1>
+    <div class="controls">
+      <label for="oppCount" style="color:var(--muted);font-size:.9rem">Rəqib:</label>
+      <select id="oppCount">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3" selected>3</option>
+      </select>
+      <button class="btn primary" id="newGame">Yeni oyun</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="opponents"></div>
+
+    <div id="table">
+      <div class="pile">
+        <div class="card back" id="drawPile"><span>KART<br>ÇƏK</span></div>
+        <small id="deckCount"></small>
+      </div>
+      <div class="pile">
+        <div id="discardSlot"></div>
+        <small>Atılan kartlar</small>
+      </div>
+      <div class="pile">
+        <div id="colorDot"></div>
+        <div id="dirInfo">↻</div>
+        <small>Cari rəng / istiqamət</small>
+      </div>
+    </div>
+
+    <div id="msgWrap">
+      <div id="msg"></div>
+      <div id="hint" style="color:#f5c518;font-size:.9rem;margin-bottom:8px"></div>
+      <button class="btn" id="passBtn">Pas ver</button>
+    </div>
+
+    <div id="hand"></div>
+  </main>
+
+  <details>
+    <summary>Qaydalar</summary>
+    <ul>
+      <li>Məqsəd: əlinizdəki bütün kartlardan ilk qurtaran olmaq.</li>
+      <li>Kartı rəngi və ya rəqəmi/işarəsi atılan kartla eyni olarsa ata bilərsiniz.</li>
+      <li>⦸ – növbəti oyunçu sırasını buraxır. ⇄ – istiqamət dəyişir (2 nəfərdə sıra buraxma kimidir).</li>
+      <li>+2 – növbəti oyunçu 2 kart çəkir və sırasını itirir.</li>
+      <li>★ – istənilən vaxt atılır, rəngi siz seçirsiniz. +4 – rəng seçirsiniz, növbəti oyunçu 4 kart çəkir.</li>
+      <li>Ata biləcək kartınız yoxdursa dəstədən kart çəkin. Çəkdiyiniz kart uyğundursa atmaq olar.</li>
+      <li>Əlinizdə 1 kart qalanda "UNO!" elan olunur.</li>
+    </ul>
+  </details>
+
+  <div id="toast"></div>
+
+  <div class="overlay" id="colorOverlay">
+    <div class="modal">
+      <h2>Rəng seçin</h2>
+      <div class="colors">
+        <button data-c="red" style="background:var(--red)"></button>
+        <button data-c="yellow" style="background:var(--yellow)"></button>
+        <button data-c="green" style="background:var(--green)"></button>
+        <button data-c="blue" style="background:var(--blue)"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="endOverlay">
+    <div class="modal">
+      <h2 id="endTitle"></h2>
+      <button class="btn primary" id="again">Yenidən oyna</button>
+    </div>
+  </div>
+
+<script>
+const COLORS = ['red', 'yellow', 'green', 'blue'];
+const COLOR_HEX = { red: '#e53935', yellow: '#fdd835', green: '#43a047', blue: '#1e88e5' };
+const COLOR_AZ = { red: 'qırmızı', yellow: 'sarı', green: 'yaşıl', blue: 'mavi' };
+const BOT_NAMES = ['Aysel', 'Rəşad', 'Nigar'];
+
+let state = null;
+
+const $ = (id) => document.getElementById(id);
+
+function buildDeck() {
+  const d = [];
+  for (const c of COLORS) {
+    d.push({ c, v: '0' });
+    for (let n = 1; n <= 9; n++) { d.push({ c, v: String(n) }); d.push({ c, v: String(n) }); }
+    for (const s of ['skip', 'reverse', 'draw2']) { d.push({ c, v: s }); d.push({ c, v: s }); }
+  }
+  for (let i = 0; i < 4; i++) { d.push({ c: 'wild', v: 'wild' }); d.push({ c: 'wild', v: 'wild4' }); }
+  return d;
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function symbol(v) {
+  return { skip: '⦸', reverse: '⇄', draw2: '+2', wild: '★', wild4: '+4' }[v] || v;
+}
+
+function startGame() {
+  const bots = parseInt($('oppCount').value, 10);
+  const players = [{ name: 'Siz', hand: [], human: true }];
+  for (let i = 0; i < bots; i++) players.push({ name: BOT_NAMES[i], hand: [], human: false });
+
+  state = { players, deck: shuffle(buildDeck()), discard: [], turn: 0, dir: 1, color: null, over: false, busy: false, pending: null };
+
+  for (let r = 0; r < 7; r++) for (let i = 0; i < players.length; i++) players[i].hand.push(state.deck.pop());
+
+  // İlk kart sadə rəqəmli kart olsun
+  let first = state.deck.pop();
+  while (!/^\d$/.test(first.v)) { state.deck.unshift(first); first = state.deck.pop(); }
+  state.discard.push(first);
+  state.color = first.c;
+
+  $('endOverlay').classList.remove('show');
+  setMsg('Oyun başladı! Sıra sizdədir.');
+  render();
+}
+
+function top() { return state.discard[state.discard.length - 1]; }
+
+function canPlay(card) {
+  return card.c === 'wild' || card.c === state.color || card.v === top().v;
+}
+
+function draw(pi, n) {
+  const p = state.players[pi];
+  for (let i = 0; i < n; i++) {
+    if (state.deck.length === 0) {
+      const t = state.discard.pop();
+      state.deck = shuffle(state.discard);
+      state.discard = [t];
+    }
+    if (state.deck.length === 0) break;
+    p.hand.push(state.deck.pop());
+  }
+}
+
+function advance(steps) {
+  const n = state.players.length;
+  state.turn = (((state.turn + state.dir * steps) % n) + n) % n;
+}
+
+function setMsg(t) { $('msg').textContent = t; }
+
+function toast(t) {
+  const el = $('toast');
+  el.textContent = t;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1100);
+}
+
+function doPlay(pi, idx, chosenColor) {
+  const p = state.players[pi];
+  const card = p.hand.splice(idx, 1)[0];
+  state.pending = null;
+  state.discard.push(card);
+  state.color = card.c === 'wild' ? chosenColor : card.c;
+
+  let msg = `${p.name} atdı: ${card.c === 'wild' ? '' : COLOR_AZ[card.c] + ' '}${symbol(card.v)}`;
+  if (card.c === 'wild') msg += ` → rəng: ${COLOR_AZ[state.color]}`;
+
+  if (p.hand.length === 0) {
+    setMsg(msg);
+    return endGame(pi);
+  }
+  if (p.hand.length === 1) toast(p.human ? 'UNO!' : `${p.name}: UNO!`);
+
+  const n = state.players.length;
+  const next = (state.turn + state.dir + n) % n;
+  let steps = 1;
+
+  if (card.v === 'skip') {
+    steps = 2; msg += ` | ${state.players[next].name} sırasını buraxır`;
+  } else if (card.v === 'reverse') {
+    if (n === 2) { steps = 2; msg += ' | sıra buraxılır'; }
+    else { state.dir *= -1; msg += ' | istiqamət dəyişdi'; }
+  } else if (card.v === 'draw2') {
+    draw(next, 2); steps = 2; msg += ` | ${state.players[next].name} 2 kart çəkir`;
+  } else if (card.v === 'wild4') {
+    draw(next, 4); steps = 2; msg += ` | ${state.players[next].name} 4 kart çəkir`;
+  }
+
+  setMsg(msg);
+  advance(steps);
+  render();
+  nextTurn();
+}
+
+function nextTurn() {
+  if (state.over) return;
+  if (state.turn === 0) {
+    state.busy = false;
+    render();
+  } else {
+    state.busy = true;
+    setTimeout(botMove, 1000);
+  }
+}
+
+function pickColor(hand) {
+  const cnt = { red: 0, yellow: 0, green: 0, blue: 0 };
+  hand.forEach(c => { if (c.c !== 'wild') cnt[c.c]++; });
+  const max = Math.max(...Object.values(cnt));
+  if (max === 0) return COLORS[Math.floor(Math.random() * 4)];
+  const best = COLORS.filter(c => cnt[c] === max);
+  return best[Math.floor(Math.random() * best.length)];
+}
+
+function botMove() {
+  if (state.over) return;
+  const pi = state.turn;
+  const p = state.players[pi];
+  const playable = p.hand.map((c, i) => ({ c, i })).filter(x => canPlay(x.c));
+
+  if (playable.length) {
+    const normal = playable.filter(x => x.c.c !== 'wild');
+    const pool = normal.length ? normal : playable;
+    const actions = pool.filter(x => isNaN(x.c.v));
+    const list = actions.length && Math.random() < 0.6 ? actions : pool;
+    const choice = list[Math.floor(Math.random() * list.length)];
+    const color = choice.c.c === 'wild' ? pickColor(p.hand.filter((_, i) => i !== choice.i)) : null;
+    return doPlay(pi, choice.i, color);
+  }
+
+  draw(pi, 1);
+  const drawn = p.hand[p.hand.length - 1];
+  if (drawn && canPlay(drawn)) {
+    const color = drawn.c === 'wild' ? pickColor(p.hand.slice(0, -1)) : null;
+    return doPlay(pi, p.hand.length - 1, color);
+  }
+  setMsg(`${p.name} kart çəkdi və pas verdi`);
+  advance(1);
+  render();
+  nextTurn();
+}
+
+function humanCanAct() {
+  return state && !state.over && state.turn === 0 && !state.busy;
+}
+
+function onCardClick(idx) {
+  if (!humanCanAct()) return;
+  const card = state.players[0].hand[idx];
+  if (state.pending && card !== state.pending) return;
+  if (!canPlay(card)) { setMsg('Bu kartı atmaq olmaz.'); return; }
+  if (card.c === 'wild') {
+    askColor(color => doPlay(0, idx, color));
+  } else {
+    doPlay(0, idx);
+  }
+}
+
+function askColor(cb) {
+  const ov = $('colorOverlay');
+  ov.classList.add('show');
+  ov.querySelectorAll('button').forEach(b => {
+    b.onclick = () => { ov.classList.remove('show'); cb(b.dataset.c); };
+  });
+}
+
+$('drawPile').onclick = () => {
+  if (!humanCanAct() || state.pending) return;
+  draw(0, 1);
+  const hand = state.players[0].hand;
+  const c = hand[hand.length - 1];
+  if (c && canPlay(c)) {
+    state.pending = c;
+    setMsg('Çəkdiyiniz kart uyğundur – atın və ya "Pas ver" basın.');
+    render();
+  } else {
+    setMsg('Kart çəkdiniz, atmaq olmur. Sıra keçdi.');
+    advance(1);
+    render();
+    nextTurn();
+  }
+};
+
+$('passBtn').onclick = () => {
+  if (!humanCanAct() || !state.pending) return;
+  state.pending = null;
+  setMsg('Pas verdiniz.');
+  advance(1);
+  render();
+  nextTurn();
+};
+
+function endGame(winner) {
+  state.over = true;
+  render();
+  $('endTitle').textContent = state.players[winner].human ? '🎉 Təbriklər, siz qalib gəldiniz!' : `😔 ${state.players[winner].name} qalib gəldi`;
+  $('endOverlay').classList.add('show');
+}
+
+function makeCard(card) {
+  const el = document.createElement('div');
+  el.className = `card ${card.c}`;
+  const s = document.createElement('span');
+  s.textContent = symbol(card.v);
+  el.appendChild(s);
+  return el;
+}
+
+function render() {
+  // Rəqiblər
+  $('opponents').innerHTML = state.players.slice(1).map((p, i) =>
+    `<div class="opp ${state.turn === i + 1 && !state.over ? 'active' : ''}">
+       <b>${p.name}</b>
+       <div class="mini">${'<span class="back"></span>'.repeat(Math.min(p.hand.length, 12))}</div>
+       <small>${p.hand.length} kart</small>
+     </div>`).join('');
+
+  // Masa
+  $('discardSlot').replaceChildren(makeCard(top()));
+  $('colorDot').style.background = COLOR_HEX[state.color];
+  $('dirInfo').textContent = state.dir === 1 ? '↻' : '↺';
+  $('deckCount').textContent = `Dəstə: ${state.deck.length}`;
+
+  // Əl
+  const hand = $('hand');
+  hand.replaceChildren();
+  const myTurn = humanCanAct();
+  state.players[0].hand.forEach((card, idx) => {
+    const el = makeCard(card);
+    const ok = myTurn && canPlay(card) && (!state.pending || card === state.pending);
+    if (ok) el.classList.add('playable');
+    el.onclick = () => onCardClick(idx);
+    hand.appendChild(el);
+  });
+
+  $('passBtn').style.display = state.pending && myTurn ? 'inline-block' : 'none';
+  const noMove = myTurn && !state.pending && !state.over && !state.players[0].hand.some(canPlay);
+  $('hint').textContent = noMove ? 'Atacaq kartınız yoxdur – dəstədən kart çəkin.' : '';
+}
+
+$('newGame').onclick = startGame;
+$('again').onclick = startGame;
+$('oppCount').onchange = startGame;
+
+startGame();
+</script>
+</body>
+</html>
